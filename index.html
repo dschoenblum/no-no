@@ -126,12 +126,14 @@
     }
 
     function update_url_date(date, do_replace) {
+        const date_string = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
         const url = new URL(window.location);
-        url.searchParams.set('date', `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`);
+        url.searchParams.set('date', date_string);
+        const title = `${document.title} ${date_string}`;
         if(do_replace) {
-            window.history.replaceState({date: date}, '', url);
+            window.history.replaceState({date: date}, title, url);
         } else {
-            window.history.pushState({date: date}, '', url);
+            window.history.pushState({date: date}, title, url);
         }
     }
 
