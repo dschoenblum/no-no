@@ -316,7 +316,7 @@
         }
 
         static async load(game_id) {
-            const url = `http://statsapi.mlb.com/api/v1.1/game/${game_id}/feed/live?fields=liveData,plays,allPlays,about,inning,isTopInning,runners,movement,outBase,linescore,innings,home,away,hits,gameData,status,detailedState,abstractGameState,teams,teamName,id`;
+            const url = `https://statsapi.mlb.com/api/v1.1/game/${game_id}/feed/live?fields=liveData,plays,allPlays,about,inning,isTopInning,runners,movement,outBase,linescore,innings,home,away,hits,gameData,status,detailedState,abstractGameState,teams,teamName,id`;
             const data = await url_get_to_json(url);
             return new Game(game_id, data);
         }
