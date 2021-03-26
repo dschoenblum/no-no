@@ -1,0 +1,458 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>No-no games</title>
+    <style>
+        body {
+            width: 95%;
+            margin: 2em auto;
+            background-color: rgb(244, 244, 244);
+            font-family: proxima-nova, "open Sans", Helvetica, Arial, sans-serif;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        #dates {
+            display: flex;
+            max-width: 500px;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .date {
+            text-transform: uppercase;
+            margin: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: rgb(170, 170, 170);
+        }
+        .date:hover {
+            color: rgb(34, 34, 34);
+            cursor: pointer;
+        }
+        .current_date {
+            color: rgb(34, 34, 34);
+        }
+        .weekday {
+            font-size: 11px;
+        }
+        .month_day {
+            font-size: 15px;
+            white-space: nowrap;
+        }
+
+        #games {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            grid-auto-rows: minmax(100px, auto);
+            grid-gap: 20px;
+        }
+        .game {
+            border-radius: 5px;
+            padding: 7.5px;
+            background-color: rgb(255, 255, 255);
+            border: 0px;
+            box-shadow: 1px 1px 6px 4px rgb(230, 230, 230);
+        }
+        .game_state {
+            border-bottom-color: rgb(230, 230, 243);
+            border-bottom-style: solid;
+            border-bottom-width: 1px;
+            padding-bottom: 6px;
+        }
+        .team {
+            display: flex;
+            align-items: center;
+            padding-top: 10px;
+        }
+        .team_name {
+            margin-left: 10px;
+        }
+        .team_result {
+            margin-left: auto;
+        }
+        .perfect {
+            background-color: rgb(207, 241, 207);
+        }
+        .nono {
+            background-color: rgb(227, 245, 227);
+        }
+        
+        #footer {
+            margin-left: auto;
+            margin-right: auto;
+        }
+    </style>
+</head>
+<body>
+<script>
+    // short delay for safari console log
+    setTimeout(() => {
+        main();
+    }, 0);
+
+    const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+    const WEEKDAYS = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+
+    async function main() {
+        window.onpopstate = (event) => {
+            if(event.state.date) {
+                load(event.state.date, false, true);
+            }
+        };
+        const date = get_current_date();
+        await load(date, true, false);
+    }
+
+    function get_current_date() {
+        const params = new URLSearchParams(window.location.search);
+        const query_date = params.get('date');
+        if(query_date !== null) {
+            const match = query_date.match(/(\d\d\d\d)-(\d\d?)-(\d\d?)/);
+            if(match !== null) {
+                return new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]));
+            }
+        }
+        return new Date();
+    }
+
+    function update_url_date(date, do_replace) {
+        const url = new URL(window.location);
+        url.searchParams.set('date', `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`);
+        if(do_replace) {
+            window.history.replaceState({date: date}, '', url);
+        } else {
+            window.history.pushState({date: date}, '', url);
+        }
+    }
+
+    async function load(current_date, is_first_load, skip_history_update) {
+        set_loading(true);
+
+        if(!skip_history_update) {
+            update_url_date(current_date, is_first_load);
+        }
+
+        const game_date = await get_game_date(current_date);
+        const game_ids = (game_date.dates.length > 0 ? game_date.dates[0].games : []).map(game => game.gamePk);
+        const game_requests = game_ids.map(game_id => {
+            return Game.load(game_id);
+        });
+        const games = await Promise.all(game_requests);
+        layout_games(games);
+        
+        const dates = get_dates(current_date);
+        layout_dates(dates, current_date);
+
+        set_loading(false);
+    }
+
+    function set_loading(is_loading) {
+        const e_loading = document.querySelector('#loading');
+        e_loading.hidden = !is_loading;
+    }
+
+    function clearChildren(parent) {
+        parent.querySelectorAll('*').forEach(child => {
+            if(child.nodeName !== 'TEMPLATE') {
+                child.remove();
+            }
+        });
+    }
+
+    function layout_games(games) {
+        const e_games = document.querySelector('#games');
+        clearChildren(e_games);
+        const t_game = document.querySelector('#game');
+        games.forEach(game => {
+            const e_wrapper = t_game.content.cloneNode(true);
+            const e_game = e_wrapper.querySelector('.game');
+            const e_game_state = e_game.querySelector('.game_state');
+            const e_away = e_game.querySelector('#away');
+            const e_home = e_game.querySelector('#home');
+
+            if(!game.is_warmup && !game.is_cancelled) {
+                if(game.is_perfect) {
+                    e_game.classList.add('perfect');
+                } else if(game.is_nono) {
+                    e_game.classList.add('nono');
+                }
+            }
+            e_game_state.title = game.id;
+            e_game_state.textContent = game.state;
+
+            layout_team(game, game.away, e_away);
+            layout_team(game, game.home, e_home);
+
+            e_games.appendChild(e_wrapper);
+        });
+    }
+
+    function layout_team(game, team, e_team) {
+        const e_img = e_team.querySelector('img');
+        const e_name = e_team.querySelector('.team_name');
+        const e_result = e_team.querySelector('.team_result');
+
+        e_img.src = `https://www.mlbstatic.com/team-logos/team-cap-on-light/${team.id}.svg`;
+        e_name.textContent = team.name;
+        e_result.textContent = get_team_result(game, team);
+    }
+
+    function get_team_result(game, team) {
+        if(game.is_preview || game.is_warmup || game.is_cancelled) {
+            return '';
+        }
+        if(team.is_perfect) {
+            return 'PERFECT';
+        }
+        if(team.is_nono) {
+            return 'NO-HITTER';
+        }
+        return inning_to_ordinal(team.lost_nono_inning);
+    }
+
+    function layout_dates(dates, current_date) {
+        const e_dates = document.querySelector('#dates');
+        clearChildren(e_dates);
+        const t_date = document.querySelector('#date');
+        dates.forEach(date => {
+            const e_wrapper = t_date.content.cloneNode(true);
+            const e_date = e_wrapper.querySelector('.date');
+            const e_weekday = e_date.querySelector('.weekday');
+            const e_month_day = e_date.querySelector('.month_day');
+
+            if(are_same_dates(date, current_date)) {
+                e_date.classList.add('current_date');
+            } else {
+                e_date.onclick = async () => load(date, false, false);
+            }
+            e_weekday.textContent = is_today(date) ? 'TODAY' : WEEKDAYS[date.getDay()];
+            e_month_day.textContent = `${MONTHS[date.getMonth()]} ${date.getDate()}`;
+
+            e_dates.appendChild(e_wrapper);
+        });
+    }
+
+    function get_dates(selected_date) {
+        const offsets = [-3, -2, -1, 0, +1, +2, +3];
+        return offsets.map(offset => {
+            let new_date = new Date(selected_date.getTime());
+            new_date.setDate(selected_date.getDate() + offset);
+            return new_date;
+        });
+    }
+
+    function is_today(date) {
+        const today = new Date();
+        return are_same_dates(today, date);
+    }
+
+    function are_same_dates(date1, date2) {
+        return date1.getDate() === date2.getDate()
+            && date1.getMonth() === date2.getMonth()
+            && date1.getFullYear() === date2.getFullYear();
+    }
+
+    async function get_game_date(date) {
+        const api_date = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+        const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${api_date}&fields=dates,games,gamePk`;
+        return await url_get_to_json(url);
+    }
+
+    async function url_get_to_json(url) {
+        const response = await fetch(url);
+        return response.json();
+    }
+
+    class Game {
+        constructor(id, data) {
+            this._id = id;
+            this._detailed_state = data.gameData.status.detailedState;
+            this._abstract_game_state = data.gameData.status.abstractGameState;
+
+            const home = Team.from_api_data(data.gameData.teams.home);
+            const away = Team.from_api_data(data.gameData.teams.away);
+
+            let inning = undefined;
+            let is_top_inning = undefined;
+
+            if(!this.is_preview) {
+                const innings = data.liveData.linescore.innings;
+                innings.forEach((inning, index) => {
+                    if(home.is_nono && inning.away.hits > 0) {
+                        home.lost_nono_inning = index + 1;
+                    }
+                    if(away.is_nono && inning.home.hits > 0) {
+                        away.lost_nono_inning = index + 1;
+                    }
+                });
+
+                const all_plays = data.liveData.plays.allPlays;
+                all_plays.forEach(play => {
+                    inning = play.about.inning;
+                    const is_top_inning = play.about.isTopInning;
+
+                    const runners = play.runners;
+                    if(runners.length !== 0) {
+                        const out_base = runners[0].movement.outBase;
+                        if(out_base !== '1B') {
+                            if(home.is_perfect && is_top_inning) {
+                                home.lost_perfect_inning = inning;
+                            } else if(away.is_perfect && !is_top_inning) {
+                                away.lost_perfect_inning = inning;
+                            }
+                        }
+                    }
+                });
+            }
+
+            this._inning = inning;
+            this._is_top_inning = is_top_inning;
+            this._home = home;
+            this._away = away;
+        }
+
+        static async load(game_id) {
+            const url = `http://statsapi.mlb.com/api/v1.1/game/${game_id}/feed/live?fields=liveData,plays,allPlays,about,inning,isTopInning,runners,movement,outBase,linescore,innings,home,away,hits,gameData,status,detailedState,abstractGameState,teams,teamName,id`;
+            const data = await url_get_to_json(url);
+            return new Game(game_id, data);
+        }
+
+        get id() {
+            return this._id;
+        }
+
+        get home() {
+            return this._home;
+        }
+
+        get away() { 
+            return this._away;
+        }
+
+        get is_preview() {
+            return this._abstract_game_state == 'Preview';
+        }
+
+        get is_warmup() {
+            return this._detailed_state == 'Warmup';
+        }
+
+        get is_live() {
+            return this._abstract_game_state == 'Live';
+        }
+
+        get is_final() {
+            return this._abstract_game_state == 'Final';
+        }
+
+        get is_cancelled() {
+            return this._detailed_state == 'Cancelled';
+        }
+
+        get is_perfect() {
+            return !this.is_preview && (this._home.is_perfect || this._away.is_perfect);
+        }
+
+        get is_nono() {
+            return !this.is_preview && (this._home.is_nono || this._away.is_nono);
+        }
+
+        get state() {
+            if(this.is_live && !this.is_warmup) {
+                const inning_half = this._is_top_inning ? 'Top' : 'Bottom';
+                return `${this._detailed_state} (${inning_half} of the ${inning_to_ordinal(this._inning)})`;
+            } else if(this.is_final && this._inning !== 9 && !this.is_cancelled) {
+                return `${this._detailed_state} (${this._inning} innings)`;
+            }
+            return this._detailed_state;
+        }
+    }
+
+    class Team {
+        constructor(id, name) {
+            this._id = id;
+            this._name = name;
+        }
+
+        static from_api_data(data) {
+            return new Team(data.id, data.teamName);
+        }
+
+        get id() {
+            return this._id;
+        }
+
+        get name() {
+            return this._name;
+        }
+
+        get is_perfect() {
+            return this._lost_perfect_inning === undefined;
+        }
+
+        get is_nono() {
+            return this._lost_nono_inning === undefined;
+        }
+
+        get lost_nono_inning() {
+            return this._lost_nono_inning;
+        }
+
+        set lost_perfect_inning(inning) {
+            this._lost_perfect_inning = inning;
+        }
+
+        set lost_nono_inning(inning) {
+            this._lost_nono_inning = inning;
+        }
+    }
+
+    function inning_to_ordinal(inning) {
+        return `${inning}${inning_to_suffix(inning)}`;
+    }
+
+    function inning_to_suffix(inning) {
+        switch(inning % 10) {
+            case 1:
+                return 'st';
+            case 2:
+                return 'nd';
+            case 3:
+                return 'rd';
+            default:
+                return 'th';
+        }
+    }
+</script>
+<div id="loading" style="position: absolute; top: 10px; left: 10px;">Loading...</div>
+<div id="dates">
+    <template id="date">
+        <div class="date">
+            <div class="weekday"></div>
+            <div class="month_day"></div>
+        </div>
+    </template>
+</div>
+<div id="games">
+    <template id="game">
+        <div class="game">
+            <div class="game_state"></div>
+            <div class="team" id="away">
+                <img width="24px" height="24px">
+                <span class="team_name"></span>
+                <span class="team_result"></span>
+            </div>
+            <div class="team" id="home">
+                <img width="24px" height="24px">
+                <span class="team_name"></span>
+                <span class="team_result"></span>
+            </div>
+        </div>
+    </template>
+</div>
+</body>
+</html>
