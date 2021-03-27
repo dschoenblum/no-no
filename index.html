@@ -301,7 +301,7 @@
                 const all_plays = data.liveData.plays.allPlays;
                 all_plays.forEach(play => {
                     inning = play.about.inning;
-                    const is_top_inning = play.about.isTopInning;
+                    is_top_inning = play.about.isTopInning;
 
                     const runners = play.runners;
                     if(runners.length !== 0) {
