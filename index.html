@@ -182,7 +182,7 @@
             const e_away = e_game.querySelector('#away');
             const e_home = e_game.querySelector('#home');
 
-            if(!game.is_warmup && !game.is_cancelled) {
+            if(!game.is_warmup && !game.is_cancelled && !game.is_postponed) {
                 if(game.is_perfect) {
                     e_game.classList.add('perfect');
                 } else if(game.is_nono) {
@@ -210,7 +210,7 @@
     }
 
     function get_team_result(game, team) {
-        if(game.is_preview || game.is_warmup || game.is_cancelled) {
+        if(game.is_preview || game.is_warmup || game.is_cancelled || game.is_postponed) {
             return '';
         }
         if(team.is_perfect) {
@@ -354,11 +354,15 @@
         }
 
         get is_final() {
-            return this._abstract_game_state == 'Final';
+            return this._abstract_game_state == 'Final' && this._detailed_state == 'Final';
         }
 
         get is_cancelled() {
             return this._detailed_state == 'Cancelled';
+        }
+
+        get is_postponed() {
+            return this._detailed_state == 'Postponed';
         }
 
         get is_perfect() {
