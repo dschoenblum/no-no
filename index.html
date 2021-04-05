@@ -174,6 +174,7 @@
         const e_games = document.querySelector('#games');
         clearChildren(e_games);
         const t_game = document.querySelector('#game');
+        games.sort(Game.compare);
         games.forEach(game => {
             const e_wrapper = t_game.content.cloneNode(true);
             const e_game = e_wrapper.querySelector('.game');
@@ -380,6 +381,27 @@
                 return `${this._detailed_state} (${this._inning} innings)`;
             }
             return this._detailed_state;
+        }
+
+        get order_value() {
+            
+            if(this.is_postponed || this.is_cancelled) {
+                return 100;
+            }
+            if(this.is_perfect) {
+                return 0;
+            }
+            if(this.is_nono) {
+                return 1;
+            }
+            if(this.is_live && !this.is_warmup && !this.is_preview) {
+                return 2;
+            }
+            return 3;
+        }
+
+        static compare(game1, game2) {
+            return game1.order_value - game2.order_value;
         }
     }
 
