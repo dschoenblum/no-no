@@ -54,11 +54,30 @@
         }
         #loading {
             position: absolute;
+            left: 15px;
+            top: 15px;
+            font-size: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
             left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 12px;
-            color: var(--muted-text);
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.1);
+            z-index: 999;
+            cursor: wait;
+        }
+        body.loading {
+            pointer-events: none;
+        }
+        body.loading #loading {
+            pointer-events: auto;
         }
         .modal {
             position: fixed;
@@ -318,9 +337,25 @@
 
     function set_loading(is_loading) {
         const e_loading = document.querySelector('#loading');
+        const body = document.body;
+        
         e_loading.hidden = !is_loading;
+        
         if (is_loading) {
-            e_loading.textContent = 'Loading...';
+            body.classList.add('loading');
+            // Add overlay to catch clicks
+            if (!document.querySelector('.loading-overlay')) {
+                const overlay = document.createElement('div');
+                overlay.className = 'loading-overlay';
+                body.appendChild(overlay);
+            }
+        } else {
+            body.classList.remove('loading');
+            // Remove overlay
+            const overlay = document.querySelector('.loading-overlay');
+            if (overlay) {
+                overlay.remove();
+            }
         }
     }
 
@@ -811,7 +846,7 @@
     <div id="calendar-trigger">
         <button class="calendar-trigger-btn">📅</button>
     </div>
-    <div id="loading" hidden>Loading...</div>
+    <div id="loading" hidden>⚾</div>
 </div>
 <div id="dates">
     <template id="date">
