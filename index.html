@@ -32,13 +32,16 @@
             color: rgb(170, 170, 170);
             cursor: pointer;
             padding: 10px;
-            border-radius: 50%;
-            transition: all 0.2s;
+            transition: color 0.2s;
             user-select: none;
         }
         .date-nav-arrow:hover {
-            background-color: rgb(230, 230, 230);
             color: rgb(34, 34, 34);
+        }
+        @media (max-width: 768px) {
+            .date-nav-arrow {
+                padding: 5px;
+            }
         }
         #dates-container {
             display: flex;
@@ -46,41 +49,33 @@
             flex: 1;
             margin: 0 10px;
         }
-        #today-link {
-            text-align: center;
-            margin-bottom: 5px;
-        }
-        .today-btn {
-            background: none;
-            border: none;
-            color: rgb(170, 170, 170);
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: bold;
-            text-transform: uppercase;
-            text-decoration: underline;
-            padding: 0;
-        }
-        .today-btn:hover {
-            color: rgb(34, 34, 34);
-        }
-        #calendar-trigger {
+        #top-bar {
+            position: relative;
             text-align: center;
             margin-bottom: 10px;
+        }
+        #calendar-trigger {
+            display: inline-block;
         }
         .calendar-trigger-btn {
             background: none;
             border: none;
             color: rgb(170, 170, 170);
             cursor: pointer;
-            font-size: 12px;
-            font-weight: bold;
-            text-transform: uppercase;
-            text-decoration: underline;
+            font-size: 14px;
+            font-weight: normal;
             padding: 0;
         }
         .calendar-trigger-btn:hover {
             color: rgb(34, 34, 34);
+        }
+        #loading {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 12px;
+            color: rgb(170, 170, 170);
         }
         .modal {
             position: fixed;
@@ -130,17 +125,37 @@
             background-color: rgb(230, 230, 230);
             color: rgb(34, 34, 34);
         }
-        #cal-month-year {
+        .calendar-month-year {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        #cal-month {
             margin: 0;
             font-size: 18px;
             font-weight: bold;
             color: rgb(34, 34, 34);
         }
+        #cal-year {
+            background: white;
+            border: 1px solid rgb(200, 200, 200);
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 16px;
+            font-weight: bold;
+            color: rgb(34, 34, 34);
+            cursor: pointer;
+        }
+        #cal-year:hover {
+            border-color: rgb(170, 170, 170);
+        }
         .calendar-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
+            grid-template-rows: repeat(7, 1fr);
             gap: 2px;
             margin-bottom: 15px;
+            min-height: 280px;
         }
         .cal-weekday {
             text-align: center;
@@ -333,7 +348,6 @@
         
         const dates = get_dates(current_date);
         layout_dates(dates, current_date);
-        layout_today_button(current_date);
 
         set_loading(false);
     }
@@ -341,6 +355,9 @@
     function set_loading(is_loading) {
         const e_loading = document.querySelector('#loading');
         e_loading.hidden = !is_loading;
+        if (is_loading) {
+            e_loading.textContent = 'Loading...';
+        }
     }
 
     function clearChildren(parent) {
@@ -446,22 +463,6 @@
         await load(new_date, false, false);
     }
 
-    function layout_today_button(current_date) {
-        const today_btn = document.querySelector('.today-btn');
-        const today = new Date();
-        
-        // Hide button if already viewing today
-        if (are_same_dates(today, current_date)) {
-            today_btn.style.visibility = 'hidden';
-        } else {
-            today_btn.style.visibility = 'visible';
-        }
-        
-        // Set click handler
-        today_btn.onclick = async () => {
-            await load(today, false, false);
-        };
-    }
 
     let current_viewing_date = new Date();
 
@@ -508,6 +509,16 @@
         const todayBtn = document.querySelector('#cal-today');
         const prevBtn = document.querySelector('#cal-prev-month');
         const nextBtn = document.querySelector('#cal-next-month');
+        const yearSelect = document.querySelector('#cal-year');
+
+        // Populate year dropdown (1960 through current year)
+        const currentYear = new Date().getFullYear();
+        for (let year = 1960; year <= currentYear; year++) {
+            const option = document.createElement('option');
+            option.value = year;
+            option.textContent = year;
+            yearSelect.appendChild(option);
+        }
 
         // Open calendar
         trigger.onclick = () => show_calendar();
@@ -525,6 +536,12 @@
         // Month navigation
         prevBtn.onclick = () => navigate_calendar_month(-1);
         nextBtn.onclick = () => navigate_calendar_month(1);
+        
+        // Year selection
+        yearSelect.onchange = () => {
+            calendar_display_date.setFullYear(parseInt(yearSelect.value));
+            populate_calendar();
+        };
         
         // Escape key to close
         document.addEventListener('keydown', (event) => {
@@ -552,11 +569,13 @@
     }
 
     function populate_calendar() {
-        const monthYear = document.querySelector('#cal-month-year');
+        const monthSpan = document.querySelector('#cal-month');
+        const yearSelect = document.querySelector('#cal-year');
         const grid = document.querySelector('.calendar-grid');
         
-        // Update month/year header
-        monthYear.textContent = `${MONTHS[calendar_display_date.getMonth()]} ${calendar_display_date.getFullYear()}`;
+        // Update month and year displays
+        monthSpan.textContent = MONTHS[calendar_display_date.getMonth()];
+        yearSelect.value = calendar_display_date.getFullYear();
         
         // Clear existing date buttons (keep weekday headers)
         const dateButtons = grid.querySelectorAll('.cal-date');
@@ -582,9 +601,9 @@
             create_calendar_date_button(day, date, false);
         }
         
-        // Add next month's leading days to fill the grid
-        const totalCells = Math.ceil((startingDayOfWeek + daysInMonth) / 7) * 7;
-        const remainingCells = totalCells - (startingDayOfWeek + daysInMonth);
+        // Add next month's leading days to always fill 6 weeks (42 total cells)
+        const totalFilledCells = startingDayOfWeek + daysInMonth;
+        const remainingCells = 42 - totalFilledCells; // Always fill to 6 weeks
         for (let day = 1; day <= remainingCells; day++) {
             const date = new Date(calendar_display_date.getFullYear(), calendar_display_date.getMonth() + 1, day);
             create_calendar_date_button(day, date, true);
@@ -829,12 +848,12 @@
         }
     }
 </script>
-<div id="loading" style="position: absolute; top: 10px; left: 10px;">Loading...</div>
-<div id="today-link">
-    <button class="today-btn">Today</button>
-</div>
-<div id="calendar-trigger">
-    <button class="calendar-trigger-btn">Select Date</button>
+<div id="top-bar">
+    <div></div>
+    <div id="calendar-trigger">
+        <button class="calendar-trigger-btn">📅</button>
+    </div>
+    <div id="loading" hidden>Loading...</div>
 </div>
 <div id="dates">
     <button id="dates-prev" class="date-nav-arrow" aria-label="Previous week">
@@ -875,7 +894,10 @@
     <div class="modal-content">
         <div class="calendar-header">
             <button id="cal-prev-month" class="cal-nav-btn">‹</button>
-            <h3 id="cal-month-year">January 2024</h3>
+            <div class="calendar-month-year">
+                <span id="cal-month">January</span>
+                <select id="cal-year"></select>
+            </div>
             <button id="cal-next-month" class="cal-nav-btn">›</button>
         </div>
         <div class="calendar-grid">
