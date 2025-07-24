@@ -19,11 +19,32 @@
 
         #dates {
             display: flex;
-            max-width: 500px;
-            justify-content: space-between;
+            align-items: center;
+            max-width: 600px;
             margin-bottom: 10px;
             margin-left: auto;
             margin-right: auto;
+        }
+        .date-nav-arrow {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: rgb(170, 170, 170);
+            cursor: pointer;
+            padding: 10px;
+            border-radius: 50%;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .date-nav-arrow:hover {
+            background-color: rgb(230, 230, 230);
+            color: rgb(34, 34, 34);
+        }
+        #dates-container {
+            display: flex;
+            justify-content: space-between;
+            flex: 1;
+            margin: 0 10px;
         }
         .date {
             text-transform: uppercase;
@@ -224,8 +245,8 @@
     }
 
     function layout_dates(dates, current_date) {
-        const e_dates = document.querySelector('#dates');
-        clearChildren(e_dates);
+        const e_dates_container = document.querySelector('#dates-container');
+        clearChildren(e_dates_container);
         const t_date = document.querySelector('#date');
         dates.forEach(date => {
             const e_wrapper = t_date.content.cloneNode(true);
@@ -241,8 +262,14 @@
             e_weekday.textContent = is_today(date) ? 'TODAY' : WEEKDAYS[date.getDay()];
             e_month_day.textContent = `${MONTHS[date.getMonth()]} ${date.getDate()}`;
 
-            e_dates.appendChild(e_wrapper);
+            e_dates_container.appendChild(e_wrapper);
         });
+
+        // Setup navigation arrows
+        const e_prev = document.querySelector('#dates-prev');
+        const e_next = document.querySelector('#dates-next');
+        e_prev.onclick = () => navigate_week(-1, current_date);
+        e_next.onclick = () => navigate_week(1, current_date);
     }
 
     function get_dates(selected_date) {
@@ -252,6 +279,12 @@
             new_date.setDate(selected_date.getDate() + offset);
             return new_date;
         });
+    }
+
+    async function navigate_week(direction, current_date) {
+        const new_date = new Date(current_date.getTime());
+        new_date.setDate(current_date.getDate() + (direction * 7));
+        await load(new_date, false, false);
     }
 
     function is_today(date) {
@@ -464,12 +497,20 @@
 </script>
 <div id="loading" style="position: absolute; top: 10px; left: 10px;">Loading...</div>
 <div id="dates">
-    <template id="date">
-        <div class="date">
-            <div class="weekday"></div>
-            <div class="month_day"></div>
-        </div>
-    </template>
+    <button id="dates-prev" class="date-nav-arrow" aria-label="Previous week">
+        <span>‹</span>
+    </button>
+    <div id="dates-container">
+        <template id="date">
+            <div class="date">
+                <div class="weekday"></div>
+                <div class="month_day"></div>
+            </div>
+        </template>
+    </div>
+    <button id="dates-next" class="date-nav-arrow" aria-label="Next week">
+        <span>›</span>
+    </button>
 </div>
 <div id="games">
     <template id="game">
