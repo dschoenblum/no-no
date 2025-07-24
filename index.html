@@ -24,11 +24,13 @@
             font-weight: bold;
         }
 
-        #dates {
+        #date-navigation {
             display: flex;
-            justify-content: space-between;
-            max-width: 500px;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
             margin-bottom: 5px;
+            max-width: 600px;
             margin-left: auto;
             margin-right: auto;
         }
@@ -37,44 +39,89 @@
             text-align: center;
             margin-bottom: 5px;
         }
-        #calendar-trigger {
-            display: inline-block;
+        .nav-button {
+            background: none;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 12px;
+            cursor: pointer;
+            color: var(--primary-text);
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.2s ease;
+            min-width: 40px;
+        }
+        .nav-button:hover {
+            background-color: var(--light-bg);
+            border-color: var(--primary-text);
+        }
+        .nav-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .current-date-display {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--primary-text);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            min-width: 200px;
+            text-align: center;
+        }
+        
+        @media (max-width: 480px) {
+            #date-navigation {
+                gap: 10px;
+                max-width: 95%;
+            }
+            .current-date-display {
+                font-size: 16px;
+                min-width: 150px;
+                letter-spacing: 0.2px;
+            }
+            .nav-button {
+                padding: 6px 10px;
+                font-size: 14px;
+                min-width: 35px;
+            }
+            .calendar-trigger-btn {
+                padding: 6px 10px;
+                font-size: 14px;
+            }
         }
         .calendar-trigger-btn {
             background: none;
-            border: none;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
             color: var(--muted-text);
             cursor: pointer;
-            font-size: 14px;
+            font-size: 16px;
             font-weight: normal;
-            padding: 0;
+            padding: 8px 12px;
+            transition: all 0.2s ease;
         }
         .calendar-trigger-btn:hover {
             color: var(--primary-text);
+            background-color: var(--light-bg);
+            border-color: var(--primary-text);
         }
         #loading {
-            position: absolute;
-            left: 15px;
-            top: 15px;
             font-size: 20px;
             animation: spin 1s linear infinite;
+            align-self: center;
+            width: 20px;
+            visibility: visible;
+        }
+        #loading.hidden {
+            visibility: hidden;
         }
         @keyframes spin {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
         }
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.1);
-            z-index: 999;
-            cursor: wait;
-        }
         body.loading {
             pointer-events: none;
+            cursor: wait;
         }
         body.loading #loading {
             pointer-events: auto;
@@ -192,31 +239,6 @@
         .cal-footer-btn:hover {
             background-color: rgb(240, 240, 240);
         }
-        .date {
-            text-transform: uppercase;
-            margin: auto;
-            display: flex;
-            flex-direction: column;
-            flex: 1 1 0px;
-            align-items: center;
-            color: var(--muted-text);
-        }
-        @media(pointer: fine) {
-            .date:hover {
-                color: var(--primary-text);
-                cursor: pointer;
-            }
-        }
-        .current_date {
-            color: var(--primary-text);
-        }
-        .weekday {
-            font-size: min(11px, 2.2vw);
-        }
-        .month_day {
-            font-size: min(15px, 3.0vw);
-            white-space: nowrap;
-        }
 
         #games {
             display: grid;
@@ -280,6 +302,9 @@
         // Setup keyboard navigation
         document.addEventListener('keydown', handle_keyboard_navigation);
         
+        // Setup navigation button handlers
+        setup_navigation_buttons();
+        
         // Setup calendar modal
         setup_calendar_modal();
         
@@ -329,8 +354,7 @@
         // Update global current date for keyboard navigation
         current_viewing_date = current_date;
         
-        const dates = get_dates(current_date);
-        layout_dates(dates, current_date);
+        layout_dates(null, current_date);
 
         set_loading(false);
     }
@@ -339,23 +363,12 @@
         const e_loading = document.querySelector('#loading');
         const body = document.body;
         
-        e_loading.hidden = !is_loading;
-        
         if (is_loading) {
+            e_loading.classList.remove('hidden');
             body.classList.add('loading');
-            // Add overlay to catch clicks
-            if (!document.querySelector('.loading-overlay')) {
-                const overlay = document.createElement('div');
-                overlay.className = 'loading-overlay';
-                body.appendChild(overlay);
-            }
         } else {
+            e_loading.classList.add('hidden');
             body.classList.remove('loading');
-            // Remove overlay
-            const overlay = document.querySelector('.loading-overlay');
-            if (overlay) {
-                overlay.remove();
-            }
         }
     }
 
@@ -420,35 +433,17 @@
     }
 
     function layout_dates(dates, current_date) {
-        const e_dates = document.querySelector('#dates');
-        clearChildren(e_dates);
-        const t_date = document.querySelector('#date');
-        dates.forEach(date => {
-            const e_wrapper = t_date.content.cloneNode(true);
-            const e_date = e_wrapper.querySelector('.date');
-            const e_weekday = e_date.querySelector('.weekday');
-            const e_month_day = e_date.querySelector('.month_day');
-
-            if(are_same_dates(date, current_date)) {
-                e_date.classList.add('current_date');
-            } else {
-                e_date.onclick = async () => load(date, false, false);
-            }
-            e_weekday.textContent = is_today(date) ? 'TODAY' : WEEKDAYS[date.getDay()];
-            e_month_day.textContent = `${MONTHS[date.getMonth()]} ${date.getDate()}`;
-
-            e_dates.appendChild(e_wrapper);
-        });
+        const e_current_date = document.querySelector('#current-date-text');
+        
+        // Format the current date display
+        const weekday = is_today(current_date) ? 'TODAY' : WEEKDAYS[current_date.getDay()];
+        const month = MONTHS[current_date.getMonth()];
+        const day = current_date.getDate();
+        const year = current_date.getFullYear();
+        
+        e_current_date.textContent = `${weekday}, ${month} ${day}, ${year}`;
     }
 
-    function get_dates(selected_date) {
-        const offsets = [-3, -2, -1, 0, +1, +2, +3];
-        return offsets.map(offset => {
-            let new_date = new Date(selected_date.getTime());
-            new_date.setDate(selected_date.getDate() + offset);
-            return new_date;
-        });
-    }
 
 
 
@@ -485,6 +480,14 @@
         const new_date = new Date(current_viewing_date.getTime());
         new_date.setDate(current_viewing_date.getDate() + direction);
         await load(new_date, false, false);
+    }
+
+    function setup_navigation_buttons() {
+        const prevButton = document.querySelector('#prev-date');
+        const nextButton = document.querySelector('#next-date');
+        
+        prevButton.onclick = () => navigate_days(-1);
+        nextButton.onclick = () => navigate_days(1);
     }
 
     let calendar_display_date = new Date();
@@ -843,18 +846,21 @@
 </script>
 <div id="top-bar">
     <div></div>
-    <div id="calendar-trigger">
-        <button class="calendar-trigger-btn">📅</button>
-    </div>
-    <div id="loading" hidden>⚾</div>
+    <div></div>
+    <div></div>
 </div>
-<div id="dates">
-    <template id="date">
-        <div class="date">
-            <div class="weekday"></div>
-            <div class="month_day"></div>
-        </div>
-    </template>
+<div id="date-navigation" role="navigation" aria-label="Date navigation">
+    <div id="loading" class="hidden">⚾</div>
+    <button class="nav-button" id="prev-date" title="Previous day (←)" aria-label="Go to previous day">
+        ◀
+    </button>
+    <div class="current-date-display" id="current-date-text" role="status" aria-live="polite">
+        <!-- Dynamic date content -->
+    </div>
+    <button class="nav-button" id="next-date" title="Next day (→)" aria-label="Go to next day">
+        ▶
+    </button>
+    <button class="calendar-trigger-btn" title="Select date" aria-label="Open calendar to select date">📅</button>
 </div>
 <div id="games">
     <template id="game">
