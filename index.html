@@ -46,6 +46,24 @@
             flex: 1;
             margin: 0 10px;
         }
+        #today-link {
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        .today-btn {
+            background: none;
+            border: none;
+            color: rgb(170, 170, 170);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            text-decoration: underline;
+            padding: 0;
+        }
+        .today-btn:hover {
+            color: rgb(34, 34, 34);
+        }
         .date {
             text-transform: uppercase;
             margin: auto;
@@ -175,6 +193,7 @@
         
         const dates = get_dates(current_date);
         layout_dates(dates, current_date);
+        layout_today_button(current_date);
 
         set_loading(false);
     }
@@ -285,6 +304,23 @@
         const new_date = new Date(current_date.getTime());
         new_date.setDate(current_date.getDate() + (direction * 7));
         await load(new_date, false, false);
+    }
+
+    function layout_today_button(current_date) {
+        const today_btn = document.querySelector('.today-btn');
+        const today = new Date();
+        
+        // Hide button if already viewing today
+        if (are_same_dates(today, current_date)) {
+            today_btn.style.visibility = 'hidden';
+        } else {
+            today_btn.style.visibility = 'visible';
+        }
+        
+        // Set click handler
+        today_btn.onclick = async () => {
+            await load(today, false, false);
+        };
     }
 
     function is_today(date) {
@@ -496,6 +532,9 @@
     }
 </script>
 <div id="loading" style="position: absolute; top: 10px; left: 10px;">Loading...</div>
+<div id="today-link">
+    <button class="today-btn">Today</button>
+</div>
 <div id="dates">
     <button id="dates-prev" class="date-nav-arrow" aria-label="Previous week">
         <span>‹</span>
