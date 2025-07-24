@@ -64,6 +64,136 @@
         .today-btn:hover {
             color: rgb(34, 34, 34);
         }
+        #calendar-trigger {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .calendar-trigger-btn {
+            background: none;
+            border: none;
+            color: rgb(170, 170, 170);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            text-decoration: underline;
+            padding: 0;
+        }
+        .calendar-trigger-btn:hover {
+            color: rgb(34, 34, 34);
+        }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            display: none;
+        }
+        .modal-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            max-width: 350px;
+            width: 90%;
+        }
+        .calendar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        .cal-nav-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: rgb(170, 170, 170);
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 50%;
+        }
+        .cal-nav-btn:hover {
+            background-color: rgb(230, 230, 230);
+            color: rgb(34, 34, 34);
+        }
+        #cal-month-year {
+            margin: 0;
+            font-size: 18px;
+            font-weight: bold;
+            color: rgb(34, 34, 34);
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            margin-bottom: 15px;
+        }
+        .cal-weekday {
+            text-align: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: rgb(170, 170, 170);
+            padding: 8px 4px;
+            text-transform: uppercase;
+        }
+        .cal-date {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            background: none;
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 14px;
+            color: rgb(34, 34, 34);
+        }
+        .cal-date:hover {
+            background-color: rgb(230, 230, 230);
+        }
+        .cal-date.today {
+            background-color: rgb(34, 34, 34);
+            color: white;
+        }
+        .cal-date.selected {
+            background-color: rgb(0, 123, 255);
+            color: white;
+        }
+        .cal-date.other-month {
+            color: rgb(200, 200, 200);
+        }
+        .calendar-footer {
+            display: flex;
+            justify-content: space-between;
+        }
+        .cal-footer-btn {
+            background: rgb(255, 255, 255);
+            border: 1px solid rgb(230, 230, 230);
+            border-radius: 4px;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: bold;
+            color: rgb(34, 34, 34);
+            cursor: pointer;
+        }
+        .cal-footer-btn:hover {
+            background-color: rgb(240, 240, 240);
+        }
         .date {
             text-transform: uppercase;
             margin: auto;
@@ -151,6 +281,9 @@
         
         // Setup keyboard navigation
         document.addEventListener('keydown', handle_keyboard_navigation);
+        
+        // Setup calendar modal
+        setup_calendar_modal();
         
         const date = get_current_date();
         await load(date, true, false);
@@ -365,6 +498,129 @@
         await load(new_date, false, false);
     }
 
+    let calendar_display_date = new Date();
+
+    function setup_calendar_modal() {
+        const modal = document.querySelector('#calendar-modal');
+        const backdrop = document.querySelector('.modal-backdrop');
+        const trigger = document.querySelector('.calendar-trigger-btn');
+        const cancelBtn = document.querySelector('#cal-cancel');
+        const todayBtn = document.querySelector('#cal-today');
+        const prevBtn = document.querySelector('#cal-prev-month');
+        const nextBtn = document.querySelector('#cal-next-month');
+
+        // Open calendar
+        trigger.onclick = () => show_calendar();
+        
+        // Close calendar
+        backdrop.onclick = () => hide_calendar();
+        cancelBtn.onclick = () => hide_calendar();
+        
+        // Today button
+        todayBtn.onclick = () => {
+            const today = new Date();
+            select_calendar_date(today);
+        };
+        
+        // Month navigation
+        prevBtn.onclick = () => navigate_calendar_month(-1);
+        nextBtn.onclick = () => navigate_calendar_month(1);
+        
+        // Escape key to close
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && modal.style.display === 'block') {
+                hide_calendar();
+            }
+        });
+    }
+
+    function show_calendar() {
+        calendar_display_date = new Date(current_viewing_date);
+        const modal = document.querySelector('#calendar-modal');
+        modal.style.display = 'block';
+        populate_calendar();
+    }
+
+    function hide_calendar() {
+        const modal = document.querySelector('#calendar-modal');
+        modal.style.display = 'none';
+    }
+
+    function navigate_calendar_month(direction) {
+        calendar_display_date.setMonth(calendar_display_date.getMonth() + direction);
+        populate_calendar();
+    }
+
+    function populate_calendar() {
+        const monthYear = document.querySelector('#cal-month-year');
+        const grid = document.querySelector('.calendar-grid');
+        
+        // Update month/year header
+        monthYear.textContent = `${MONTHS[calendar_display_date.getMonth()]} ${calendar_display_date.getFullYear()}`;
+        
+        // Clear existing date buttons (keep weekday headers)
+        const dateButtons = grid.querySelectorAll('.cal-date');
+        dateButtons.forEach(btn => btn.remove());
+        
+        // Get first day of month and number of days
+        const firstDay = new Date(calendar_display_date.getFullYear(), calendar_display_date.getMonth(), 1);
+        const lastDay = new Date(calendar_display_date.getFullYear(), calendar_display_date.getMonth() + 1, 0);
+        const daysInMonth = lastDay.getDate();
+        const startingDayOfWeek = firstDay.getDay();
+        
+        // Add previous month's trailing days
+        const prevMonth = new Date(calendar_display_date.getFullYear(), calendar_display_date.getMonth() - 1, 0);
+        for (let i = startingDayOfWeek - 1; i >= 0; i--) {
+            const day = prevMonth.getDate() - i;
+            const date = new Date(prevMonth.getFullYear(), prevMonth.getMonth(), day);
+            create_calendar_date_button(day, date, true);
+        }
+        
+        // Add current month's days
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(calendar_display_date.getFullYear(), calendar_display_date.getMonth(), day);
+            create_calendar_date_button(day, date, false);
+        }
+        
+        // Add next month's leading days to fill the grid
+        const totalCells = Math.ceil((startingDayOfWeek + daysInMonth) / 7) * 7;
+        const remainingCells = totalCells - (startingDayOfWeek + daysInMonth);
+        for (let day = 1; day <= remainingCells; day++) {
+            const date = new Date(calendar_display_date.getFullYear(), calendar_display_date.getMonth() + 1, day);
+            create_calendar_date_button(day, date, true);
+        }
+    }
+
+    function create_calendar_date_button(day, date, isOtherMonth) {
+        const grid = document.querySelector('.calendar-grid');
+        const button = document.createElement('button');
+        const today = new Date();
+        
+        button.className = 'cal-date';
+        button.textContent = day;
+        
+        if (isOtherMonth) {
+            button.classList.add('other-month');
+        }
+        
+        if (are_same_dates(date, today)) {
+            button.classList.add('today');
+        }
+        
+        if (are_same_dates(date, current_viewing_date)) {
+            button.classList.add('selected');
+        }
+        
+        button.onclick = () => select_calendar_date(date);
+        
+        grid.appendChild(button);
+    }
+
+    async function select_calendar_date(date) {
+        hide_calendar();
+        await load(date, false, false);
+    }
+
     function is_today(date) {
         const today = new Date();
         return are_same_dates(today, date);
@@ -577,6 +833,9 @@
 <div id="today-link">
     <button class="today-btn">Today</button>
 </div>
+<div id="calendar-trigger">
+    <button class="calendar-trigger-btn">Select Date</button>
+</div>
 <div id="dates">
     <button id="dates-prev" class="date-nav-arrow" aria-label="Previous week">
         <span>‹</span>
@@ -609,6 +868,30 @@
             </div>
         </div>
     </template>
+</div>
+
+<div id="calendar-modal" class="modal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+        <div class="calendar-header">
+            <button id="cal-prev-month" class="cal-nav-btn">‹</button>
+            <h3 id="cal-month-year">January 2024</h3>
+            <button id="cal-next-month" class="cal-nav-btn">›</button>
+        </div>
+        <div class="calendar-grid">
+            <div class="cal-weekday">Sun</div>
+            <div class="cal-weekday">Mon</div>
+            <div class="cal-weekday">Tue</div>
+            <div class="cal-weekday">Wed</div>
+            <div class="cal-weekday">Thu</div>
+            <div class="cal-weekday">Fri</div>
+            <div class="cal-weekday">Sat</div>
+        </div>
+        <div class="calendar-footer">
+            <button id="cal-today" class="cal-footer-btn">Today</button>
+            <button id="cal-cancel" class="cal-footer-btn">Cancel</button>
+        </div>
+    </div>
 </div>
 </body>
 </html>
