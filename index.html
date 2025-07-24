@@ -19,35 +19,11 @@
 
         #dates {
             display: flex;
-            align-items: center;
-            max-width: 600px;
+            justify-content: space-between;
+            max-width: 500px;
             margin-bottom: 5px;
             margin-left: auto;
             margin-right: auto;
-        }
-        .date-nav-arrow {
-            background: none;
-            border: none;
-            font-size: 24px;
-            color: rgb(170, 170, 170);
-            cursor: pointer;
-            padding: 10px;
-            transition: color 0.2s;
-            user-select: none;
-        }
-        .date-nav-arrow:hover {
-            color: rgb(34, 34, 34);
-        }
-        @media (max-width: 768px) {
-            .date-nav-arrow {
-                padding: 5px;
-            }
-        }
-        #dates-container {
-            display: flex;
-            justify-content: space-between;
-            flex: 1;
-            margin: 0 10px;
         }
         #top-bar {
             position: relative;
@@ -112,29 +88,23 @@
             justify-content: space-between;
             margin-bottom: 15px;
         }
-        .cal-nav-btn {
-            background: none;
-            border: none;
-            font-size: 24px;
-            color: rgb(170, 170, 170);
-            cursor: pointer;
-            padding: 5px 10px;
-            border-radius: 50%;
-        }
-        .cal-nav-btn:hover {
-            background-color: rgb(230, 230, 230);
-            color: rgb(34, 34, 34);
-        }
         .calendar-month-year {
             display: flex;
             align-items: center;
             gap: 8px;
         }
         #cal-month {
-            margin: 0;
-            font-size: 18px;
+            background: white;
+            border: 1px solid rgb(200, 200, 200);
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 16px;
             font-weight: bold;
             color: rgb(34, 34, 34);
+            cursor: pointer;
+        }
+        #cal-month:hover {
+            border-color: rgb(170, 170, 170);
         }
         #cal-year {
             background: white;
@@ -421,8 +391,8 @@
     }
 
     function layout_dates(dates, current_date) {
-        const e_dates_container = document.querySelector('#dates-container');
-        clearChildren(e_dates_container);
+        const e_dates = document.querySelector('#dates');
+        clearChildren(e_dates);
         const t_date = document.querySelector('#date');
         dates.forEach(date => {
             const e_wrapper = t_date.content.cloneNode(true);
@@ -438,14 +408,8 @@
             e_weekday.textContent = is_today(date) ? 'TODAY' : WEEKDAYS[date.getDay()];
             e_month_day.textContent = `${MONTHS[date.getMonth()]} ${date.getDate()}`;
 
-            e_dates_container.appendChild(e_wrapper);
+            e_dates.appendChild(e_wrapper);
         });
-
-        // Setup navigation arrows
-        const e_prev = document.querySelector('#dates-prev');
-        const e_next = document.querySelector('#dates-next');
-        e_prev.onclick = () => navigate_week(-1, current_date);
-        e_next.onclick = () => navigate_week(1, current_date);
     }
 
     function get_dates(selected_date) {
@@ -457,11 +421,6 @@
         });
     }
 
-    async function navigate_week(direction, current_date) {
-        const new_date = new Date(current_date.getTime());
-        new_date.setDate(current_date.getDate() + (direction * 7));
-        await load(new_date, false, false);
-    }
 
 
     let current_viewing_date = new Date();
@@ -507,9 +466,16 @@
         const trigger = document.querySelector('.calendar-trigger-btn');
         const cancelBtn = document.querySelector('#cal-cancel');
         const todayBtn = document.querySelector('#cal-today');
-        const prevBtn = document.querySelector('#cal-prev-month');
-        const nextBtn = document.querySelector('#cal-next-month');
+        const monthSelect = document.querySelector('#cal-month');
         const yearSelect = document.querySelector('#cal-year');
+
+        // Populate month dropdown
+        MONTHS.forEach((month, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = month;
+            monthSelect.appendChild(option);
+        });
 
         // Populate year dropdown (1960 through current year)
         const currentYear = new Date().getFullYear();
@@ -533,9 +499,11 @@
             select_calendar_date(today);
         };
         
-        // Month navigation
-        prevBtn.onclick = () => navigate_calendar_month(-1);
-        nextBtn.onclick = () => navigate_calendar_month(1);
+        // Month selection
+        monthSelect.onchange = () => {
+            calendar_display_date.setMonth(parseInt(monthSelect.value));
+            populate_calendar();
+        };
         
         // Year selection
         yearSelect.onchange = () => {
@@ -563,18 +531,14 @@
         modal.style.display = 'none';
     }
 
-    function navigate_calendar_month(direction) {
-        calendar_display_date.setMonth(calendar_display_date.getMonth() + direction);
-        populate_calendar();
-    }
 
     function populate_calendar() {
-        const monthSpan = document.querySelector('#cal-month');
+        const monthSelect = document.querySelector('#cal-month');
         const yearSelect = document.querySelector('#cal-year');
         const grid = document.querySelector('.calendar-grid');
         
         // Update month and year displays
-        monthSpan.textContent = MONTHS[calendar_display_date.getMonth()];
+        monthSelect.value = calendar_display_date.getMonth();
         yearSelect.value = calendar_display_date.getFullYear();
         
         // Clear existing date buttons (keep weekday headers)
@@ -856,20 +820,12 @@
     <div id="loading" hidden>Loading...</div>
 </div>
 <div id="dates">
-    <button id="dates-prev" class="date-nav-arrow" aria-label="Previous week">
-        <span>‹</span>
-    </button>
-    <div id="dates-container">
-        <template id="date">
-            <div class="date">
-                <div class="weekday"></div>
-                <div class="month_day"></div>
-            </div>
-        </template>
-    </div>
-    <button id="dates-next" class="date-nav-arrow" aria-label="Next week">
-        <span>›</span>
-    </button>
+    <template id="date">
+        <div class="date">
+            <div class="weekday"></div>
+            <div class="month_day"></div>
+        </div>
+    </template>
 </div>
 <div id="games">
     <template id="game">
@@ -893,12 +849,10 @@
     <div class="modal-backdrop"></div>
     <div class="modal-content">
         <div class="calendar-header">
-            <button id="cal-prev-month" class="cal-nav-btn">‹</button>
             <div class="calendar-month-year">
-                <span id="cal-month">January</span>
+                <select id="cal-month"></select>
                 <select id="cal-year"></select>
             </div>
-            <button id="cal-next-month" class="cal-nav-btn">›</button>
         </div>
         <div class="calendar-grid">
             <div class="cal-weekday">Sun</div>
