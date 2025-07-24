@@ -148,6 +148,10 @@
                 load(event.state.date, false, true);
             }
         };
+        
+        // Setup keyboard navigation
+        document.addEventListener('keydown', handle_keyboard_navigation);
+        
         const date = get_current_date();
         await load(date, true, false);
     }
@@ -190,6 +194,9 @@
         });
         const games = await Promise.all(game_requests);
         layout_games(games);
+        
+        // Update global current date for keyboard navigation
+        current_viewing_date = current_date;
         
         const dates = get_dates(current_date);
         layout_dates(dates, current_date);
@@ -321,6 +328,41 @@
         today_btn.onclick = async () => {
             await load(today, false, false);
         };
+    }
+
+    let current_viewing_date = new Date();
+
+    function handle_keyboard_navigation(event) {
+        // Don't interfere with form inputs or if modifiers are pressed
+        if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || 
+            event.ctrlKey || event.metaKey || event.altKey) {
+            return;
+        }
+        
+        switch(event.key) {
+            case 'ArrowLeft':
+                navigate_days(-1);
+                event.preventDefault();
+                break;
+            case 'ArrowRight':
+                navigate_days(1);
+                event.preventDefault();
+                break;
+            case 't':
+            case 'T':
+                const today = new Date();
+                if (!are_same_dates(today, current_viewing_date)) {
+                    load(today, false, false);
+                }
+                event.preventDefault();
+                break;
+        }
+    }
+
+    async function navigate_days(direction) {
+        const new_date = new Date(current_viewing_date.getTime());
+        new_date.setDate(current_viewing_date.getDate() + direction);
+        await load(new_date, false, false);
     }
 
     function is_today(date) {
