@@ -869,8 +869,8 @@
         const day = String(current_date.getDate()).padStart(2, '0');
         const date_string = `${year}${month}${day}`;
         
-        const away_team = get_team_abbreviation(game.away.name);
-        const home_team = get_team_abbreviation(game.home.name);
+        const away_team = get_team_abbreviation_by_id(game.away.id);
+        const home_team = get_team_abbreviation_by_id(game.home.id);
         
         return `https://www.baseball-reference.com/boxes/${home_team}/${home_team}${date_string}0.shtml`;
     }
@@ -887,42 +887,41 @@
         return `https://www.mlb.com/gameday/${teams_slug}/${year}/${month}/${day}/${game.id}/live`;
     }
 
-    function get_team_abbreviation(team_name) {
+    function get_team_abbreviation_by_id(team_id) {
         const abbreviations = {
-            'Angels': 'LAA',
-            'Astros': 'HOU',
-            'Athletics': 'OAK',
-            'Blue Jays': 'TOR',
-            'Braves': 'ATL',
-            'Brewers': 'MIL',
-            'Cardinals': 'STL',
-            'Cubs': 'CHC',
-            'Diamondbacks': 'ARI',
-            'Dodgers': 'LAD',
-            'Giants': 'SFG',
-            'Guardians': 'CLE',
-            'Indians': 'CLE',
-            'Mariners': 'SEA',
-            'Marlins': 'MIA',
-            'Mets': 'NYM',
-            'Nationals': 'WSN',
-            'Orioles': 'BAL',
-            'Padres': 'SDP',
-            'Phillies': 'PHI',
-            'Pirates': 'PIT',
-            'Rangers': 'TEX',
-            'Rays': 'TBR',
-            'Red Sox': 'BOS',
-            'Reds': 'CIN',
-            'Rockies': 'COL',
-            'Royals': 'KCR',
-            'Tigers': 'DET',
-            'Twins': 'MIN',
-            'White Sox': 'CHW',
-            'Yankees': 'NYY'
+            108: 'ANA', // Los Angeles Angels
+            109: 'ARI', // Arizona Diamondbacks
+            110: 'BAL', // Baltimore Orioles
+            111: 'BOS', // Boston Red Sox
+            112: 'CHN', // Chicago Cubs
+            113: 'CIN', // Cincinnati Reds
+            114: 'CLE', // Cleveland Guardians
+            115: 'COL', // Colorado Rockies
+            116: 'DET', // Detroit Tigers
+            117: 'HOU', // Houston Astros
+            118: 'KCA', // Kansas City Royals
+            119: 'LAN', // Los Angeles Dodgers
+            120: 'WAS', // Washington Nationals
+            121: 'NYN', // New York Mets
+            133: 'ATH', // Athletics
+            134: 'PIT', // Pittsburgh Pirates
+            135: 'SDN', // San Diego Padres
+            136: 'SEA', // Seattle Mariners
+            137: 'SFN', // San Francisco Giants
+            138: 'SLN', // St. Louis Cardinals
+            139: 'TBA', // Tampa Bay Rays
+            140: 'TEX', // Texas Rangers
+            141: 'TOR', // Toronto Blue Jays
+            142: 'MIN', // Minnesota Twins
+            143: 'PHI', // Philadelphia Phillies
+            144: 'ATL', // Atlanta Braves
+            145: 'CHA', // Chicago White Sox
+            146: 'MIA', // Miami Marlins
+            147: 'NYA', // New York Yankees
+            158: 'MIL'  // Milwaukee Brewers
         };
         
-        return abbreviations[team_name] || team_name.substring(0, 3).toUpperCase();
+        return abbreviations[team_id] || 'UNK';
     }
 </script>
 <div id="top-bar">
