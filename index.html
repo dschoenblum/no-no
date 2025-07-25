@@ -349,9 +349,9 @@
         }
 
         const game_date = await get_game_date(current_date);
-        const game_ids = (game_date.dates.length > 0 ? game_date.dates[0].games : []).map(game => game.gamePk);
-        const game_requests = game_ids.map(game_id => {
-            return Game.load(game_id);
+        const schedule_games = (game_date.dates.length > 0 ? game_date.dates[0].games : []);
+        const game_requests = schedule_games.map(schedule_game => {
+            return Game.load(schedule_game.gamePk, schedule_game);
         });
         const games = await Promise.all(game_requests);
         layout_games(games, current_date);
@@ -668,7 +668,7 @@
 
     async function get_game_date(date) {
         const api_date = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
-        const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${api_date}&fields=dates,games,gamePk`;
+        const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${api_date}&fields=dates,games,gamePk,rescheduleDate,rescheduleGameDate,status,reason`;
         return await url_get_to_json(url);
     }
 
@@ -678,10 +678,14 @@
     }
 
     class Game {
-        constructor(id, data) {
+        constructor(id, data, schedule_data = null) {
             this._id = id;
             this._detailed_state = data.gameData.status.detailedState;
             this._abstract_game_state = data.gameData.status.abstractGameState;
+            this._double_header = data.gameData.game?.doubleHeader;
+            this._game_number = data.gameData.game?.gameNumber;
+            this._reschedule_date = schedule_data?.rescheduleGameDate;
+            this._postponement_reason = schedule_data?.status?.reason;
 
             const home = Team.from_api_data(data.gameData.teams.home);
             const away = Team.from_api_data(data.gameData.teams.away);
@@ -725,10 +729,10 @@
             this._away = away;
         }
 
-        static async load(game_id) {
-            const url = `https://statsapi.mlb.com/api/v1.1/game/${game_id}/feed/live?fields=liveData,plays,allPlays,about,inning,isTopInning,runners,movement,outBase,linescore,innings,home,away,hits,gameData,status,detailedState,abstractGameState,teams,teamName,id`;
+        static async load(game_id, schedule_data = null) {
+            const url = `https://statsapi.mlb.com/api/v1.1/game/${game_id}/feed/live?fields=liveData,plays,allPlays,about,inning,isTopInning,runners,movement,outBase,linescore,innings,home,away,hits,gameData,status,detailedState,abstractGameState,teams,teamName,id,game,doubleHeader,gameNumber`;
             const data = await url_get_to_json(url);
-            return new Game(game_id, data);
+            return new Game(game_id, data, schedule_data);
         }
 
         get id() {
@@ -741,6 +745,26 @@
 
         get away() { 
             return this._away;
+        }
+
+        get doubleHeader() {
+            return this._double_header;
+        }
+
+        get gameNumber() {
+            return this._game_number;
+        }
+
+        get rescheduleDate() {
+            return this._reschedule_date;
+        }
+
+        get postponementReason() {
+            return this._postponement_reason;
+        }
+
+        get is_rescheduled() {
+            return this._reschedule_date !== undefined && this._reschedule_date !== null;
         }
 
         get is_preview() {
@@ -776,13 +800,34 @@
         }
 
         get state() {
+            let base_state = this._detailed_state;
+            
             if(this.is_live && !this.is_warmup) {
                 const inning_half = this._is_top_inning ? 'Top' : 'Bottom';
-                return `${this._detailed_state} (${inning_half} of the ${inning_to_ordinal(this._inning)})`;
+                base_state += ` (${inning_half} of the ${inning_to_ordinal(this._inning)})`;
             } else if(this.is_final && this._inning !== 9 && !this.is_cancelled) {
-                return `${this._detailed_state} (${this._inning} innings)`;
+                base_state += ` (${this._inning} innings)`;
+            } else if(this.is_postponed && this.postponementReason) {
+                const reschedule_info = this.is_rescheduled ? ` (rescheduled to ${this.rescheduleDate})` : '';
+                base_state += ` - ${this.postponementReason}${reschedule_info}`;
             }
-            return this._detailed_state;
+            
+            // Add rescheduling info for games that were postponed but are now final
+            if(this.is_rescheduled && this.postponementReason && !this.is_postponed) {
+                const reschedule_date = new Date(this.rescheduleDate + 'T00:00:00');
+                const formatted_date = reschedule_date.toLocaleDateString('en-US', { 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+                base_state += ` (${formatted_date}, ${this.postponementReason})`;
+            }
+            
+            // Add doubleheader game indicator (but not for postponed games)
+            if(this.doubleHeader !== 'N' && this.gameNumber && !this.is_rescheduled) {
+                base_state += ` [Game ${this.gameNumber}]`;
+            }
+            
+            return base_state;
         }
 
         get order_value() {
@@ -864,15 +909,26 @@
     }
 
     function generate_baseball_reference_url(game, current_date) {
-        const year = current_date.getFullYear();
-        const month = String(current_date.getMonth() + 1).padStart(2, '0');
-        const day = String(current_date.getDate()).padStart(2, '0');
+        // Use reschedule date if game was postponed and rescheduled, otherwise use current date
+        let actual_date = current_date;
+        if (game.is_rescheduled && game.rescheduleDate) {
+            actual_date = new Date(game.rescheduleDate + 'T00:00:00');
+        }
+        
+        const year = actual_date.getFullYear();
+        const month = String(actual_date.getMonth() + 1).padStart(2, '0');
+        const day = String(actual_date.getDate()).padStart(2, '0');
         const date_string = `${year}${month}${day}`;
         
         const away_team = get_team_abbreviation_by_id(game.away.id);
         const home_team = get_team_abbreviation_by_id(game.home.id);
         
-        return `https://www.baseball-reference.com/boxes/${home_team}/${home_team}${date_string}0.shtml`;
+        // Handle doubleheader games: use gameNumber for any doubleheader (not "N"), otherwise 0
+        const game_suffix = (game.doubleHeader !== 'N') 
+            ? game.gameNumber 
+            : 0;
+        
+        return `https://www.baseball-reference.com/boxes/${home_team}/${home_team}${date_string}${game_suffix}.shtml`;
     }
 
     function generate_mlb_gameday_url(game, current_date) {
