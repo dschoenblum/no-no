@@ -253,9 +253,14 @@
             border: 0;
             box-shadow: 1px 1px 6px 4px var(--light-bg);
             transition-duration: 0.2s;
+            text-decoration: none;
+            color: inherit;
+            display: block;
         }
         .game:hover {
             transform: scale(1.03);
+            text-decoration: none;
+            color: inherit;
         }
         .game_state {
             border-bottom-color: rgb(230, 230, 243);
@@ -349,7 +354,7 @@
             return Game.load(game_id);
         });
         const games = await Promise.all(game_requests);
-        layout_games(games);
+        layout_games(games, current_date);
         
         // Update global current date for keyboard navigation
         current_viewing_date = current_date;
@@ -380,10 +385,13 @@
         });
     }
 
-    function layout_games(games) {
+    function layout_games(games, current_date) {
         const e_games = document.querySelector('#games');
         clearChildren(e_games);
         const t_game = document.querySelector('#game');
+        const today = new Date();
+        const is_today_games = are_same_dates(current_date, today);
+        
         games.sort(Game.compare);
         games.forEach(game => {
             const e_wrapper = t_game.content.cloneNode(true);
@@ -391,7 +399,6 @@
             const e_game_state = e_game.querySelector('.game_state');
             const e_away = e_game.querySelector('.away');
             const e_home = e_game.querySelector('.home');
-
             if(!game.is_warmup && !game.is_cancelled && !game.is_postponed) {
                 if(game.is_perfect) {
                     e_game.classList.add('perfect');
@@ -404,6 +411,18 @@
 
             layout_team(game, game.away, e_away);
             layout_team(game, game.home, e_home);
+            
+            // Make card clickable only for historical games (not today)
+            if (!is_today_games) {
+                e_game.href = generate_baseball_reference_url(game, current_date);
+                e_game.title = "View game details on Baseball Reference";
+            } else {
+                // Remove link behavior for today's games
+                e_game.removeAttribute('href');
+                e_game.removeAttribute('target');
+                e_game.removeAttribute('rel');
+                e_game.style.cursor = 'default';
+            }
 
             e_games.appendChild(e_wrapper);
         });
@@ -843,6 +862,68 @@
                 return 'th';
         }
     }
+
+    function generate_baseball_reference_url(game, current_date) {
+        const year = current_date.getFullYear();
+        const month = String(current_date.getMonth() + 1).padStart(2, '0');
+        const day = String(current_date.getDate()).padStart(2, '0');
+        const date_string = `${year}${month}${day}`;
+        
+        const away_team = get_team_abbreviation(game.away.name);
+        const home_team = get_team_abbreviation(game.home.name);
+        
+        return `https://www.baseball-reference.com/boxes/${home_team}/${home_team}${date_string}0.shtml`;
+    }
+
+    function generate_mlb_gameday_url(game, current_date) {
+        const year = current_date.getFullYear();
+        const month = current_date.getMonth() + 1;
+        const day = current_date.getDate();
+        
+        const away_team = game.away.name.toLowerCase().replace(/\s+/g, '-');
+        const home_team = game.home.name.toLowerCase().replace(/\s+/g, '-');
+        const teams_slug = `${away_team}-vs-${home_team}`;
+        
+        return `https://www.mlb.com/gameday/${teams_slug}/${year}/${month}/${day}/${game.id}/live`;
+    }
+
+    function get_team_abbreviation(team_name) {
+        const abbreviations = {
+            'Angels': 'LAA',
+            'Astros': 'HOU',
+            'Athletics': 'OAK',
+            'Blue Jays': 'TOR',
+            'Braves': 'ATL',
+            'Brewers': 'MIL',
+            'Cardinals': 'STL',
+            'Cubs': 'CHC',
+            'Diamondbacks': 'ARI',
+            'Dodgers': 'LAD',
+            'Giants': 'SFG',
+            'Guardians': 'CLE',
+            'Indians': 'CLE',
+            'Mariners': 'SEA',
+            'Marlins': 'MIA',
+            'Mets': 'NYM',
+            'Nationals': 'WSN',
+            'Orioles': 'BAL',
+            'Padres': 'SDP',
+            'Phillies': 'PHI',
+            'Pirates': 'PIT',
+            'Rangers': 'TEX',
+            'Rays': 'TBR',
+            'Red Sox': 'BOS',
+            'Reds': 'CIN',
+            'Rockies': 'COL',
+            'Royals': 'KCR',
+            'Tigers': 'DET',
+            'Twins': 'MIN',
+            'White Sox': 'CHW',
+            'Yankees': 'NYY'
+        };
+        
+        return abbreviations[team_name] || team_name.substring(0, 3).toUpperCase();
+    }
 </script>
 <div id="top-bar">
     <div></div>
@@ -864,7 +945,7 @@
 </div>
 <div id="games">
     <template id="game">
-        <div class="game">
+        <a class="game" href="#" target="_blank" rel="noopener noreferrer">
             <div class="game_state"></div>
             <div class="team away">
                 <img width="24px" height="24px">
@@ -876,7 +957,7 @@
                 <span class="team_name"></span>
                 <span class="team_result"></span>
             </div>
-        </div>
+        </a>
     </template>
 </div>
 
