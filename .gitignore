@@ -1,1 +1,6 @@
 .idea/
+# Local MLB API sample data
+all_statuses.json
+all_statuses.tsv
+game.json
+out.json
